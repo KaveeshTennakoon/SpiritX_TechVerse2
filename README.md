@@ -28,7 +28,7 @@ To get started with this project:
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/KaveeshTennakoon/TechVerse_02.git
+   git clone https://github.com/KaveeshTennakoon/SpiritX_TechVerse1.git
    ```
 
 2. **Navigate to the desired directory**:
