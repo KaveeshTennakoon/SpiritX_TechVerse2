@@ -1,45 +1,79 @@
-// Import necessary modules
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const db = require('./config/db');  // Correct import for the db module
+const bodyParser = require('body-parser');
+const db = require('./config/db');
 
-// Create an instance of an Express app
+// Import routes
+const authRoutes = require('./routes/auth.routes');
+const playerRoutes = require('./routes/player.routes');
+const teamRoutes = require('./routes/team.routes');
+const chatbotRoutes = require('./routes/chatbot.routes');
+
+// Create Express app
 const app = express();
 
-// Set up middleware
-app.use(cors());  // Enable Cross-Origin Resource Sharing if necessary
-app.use(express.json());  // Parse incoming JSON requests
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Test API route to check server status
-app.get('/', (req, res) => {
-  res.send('Server is running!');
+// Create the database and tables if they don't exist
+db.createDatabaseAndTables().then(() => {
+  console.log('Database and tables setup complete');
+}).catch(err => {
+  console.error('Error setting up the database and tables:', err);
 });
 
-// API route to save player data
-app.post('/api/players', async (req, res) => {
-  const { name, university, category, total_runs, balls_faced, innings_played, wickets, overs_bowled, runs_conceded } = req.body;
-
-  try {
-    const [result] = await db.pool.query(
-      `INSERT INTO players (name, university, category, total_runs, balls_faced, innings_played, wickets, overs_bowled, runs_conceded) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, university, category, total_runs, balls_faced, innings_played, wickets, overs_bowled, runs_conceded]
-    );
-    res.status(201).json({ message: 'Player data saved successfully', playerId: result.insertId });
-  } catch (err) {
-    console.error('Error saving player data:', err);
-    res.status(500).json({ message: 'Error saving player data' });
+// Simple middleware to check admin status
+app.use((req, res, next) => {
+  if (req.headers.authorization) {
+    const token = req.headers.authorization.startsWith('Bearer ') 
+      ? req.headers.authorization.slice(7) 
+      : req.headers.authorization;
+    
+    try {
+      const jwt = require('jsonwebtoken');
+      const config = require('./config/auth.config');
+      const decoded = jwt.verify(token, config.secret);
+      
+      // Set flag for controllers to use
+      req.userId = decoded.id;
+      
+      // Check if user is admin
+      const User = require('./models/user.model');
+      User.findById(decoded.id).then(user => {
+        req.isAdmin = user && user.is_admin;
+        next();
+      }).catch(() => {
+        // If there's an error, just continue without setting isAdmin
+        req.isAdmin = false;
+        next();
+      });
+    } catch (error) {
+      // If token verification fails, continue without setting isAdmin
+      req.isAdmin = false;
+      next();
+    }
+  } else {
+    req.isAdmin = false;
+    next();
   }
 });
 
-// Start the server
-const PORT = process.env.PORT || 5000;
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/players', playerRoutes);
+app.use('/api/team', teamRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
-// Call the function to create the database and tables
-db.createDatabaseAndTables().then(() => {
-  console.log('Database and tables setup complete');
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-}).catch(err => {
-  console.error('Error setting up the database and tables:', err);
+// Health check route
+app.get('/', (req, res) => {
+  res.json({ message: 'Spirit11 Fantasy Cricket Game API is running!' });
+});
+
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
