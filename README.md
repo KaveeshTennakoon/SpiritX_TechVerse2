@@ -34,7 +34,7 @@ To get started with this project:
 2. **Navigate to the desired directory**:
 
    ```bash
-   cd TechVerse_02
+   cd SpiritX_TechVerse2
    ```
 
 3. **Install dependencies**:
